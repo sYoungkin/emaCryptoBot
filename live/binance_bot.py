@@ -74,9 +74,20 @@ def run_live_bot(symbol='BTC/USDT', timeframe='1m', capital=100, stop_loss_pct=0
         message += f"🟢 BUY signal | {symbol} at ${price} | SL: ${stop_price} | TP: ${take_profit_price} | Qty: {amount}"
 
         if mode == 'live':
-            # exchange.create_market_buy_order(symbol, amount)
-            # exchange.create_order(symbol, 'stop_loss_limit', 'sell', amount, stop_price, {'stopPrice': stop_price})
-            pass
+        # OCO order with take-profit and stop-loss
+        # exchange.create_order(
+        #     symbol=symbol,
+        #     type='OCO',
+        #     side='sell',
+        #     amount=amount,
+        #     price=take_profit_price,
+        #     params={
+        #         'stopPrice': stop_price,
+        #         'stopLimitPrice': stop_price,
+        #         'stopLimitTimeInForce': 'GTC'
+        #     }
+        # )
+        pass
         log_trade(timestamp, symbol, 'BUY', price, amount, mode)
 
     elif latest_signal == -1:
@@ -85,9 +96,20 @@ def run_live_bot(symbol='BTC/USDT', timeframe='1m', capital=100, stop_loss_pct=0
         message += f"🔴 SELL signal | {symbol} at ${price} | SL: ${stop_price} | TP: ${take_profit_price} | Qty: {amount}"
 
         if mode == 'live':
-            # exchange.create_market_sell_order(symbol, amount)
-            # exchange.create_order(symbol, 'stop_loss_limit', 'buy', amount, stop_price, {'stopPrice': stop_price})
-            pass
+        # OCO order with take-profit and stop-loss
+        # exchange.create_order(
+        #     symbol=symbol,
+        #     type='OCO',
+        #     side='buy',
+        #     amount=amount,
+        #     price=take_profit_price,
+        #     params={
+        #         'stopPrice': stop_price,
+        #         'stopLimitPrice': stop_price,
+        #         'stopLimitTimeInForce': 'GTC'
+        #     }
+        # )
+        pass
         log_trade(timestamp, symbol, 'SELL', price, amount, mode)
 
     else:
