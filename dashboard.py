@@ -1,9 +1,10 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from strategy.ema_crossover import ema_crossover_strategy
-from backtest.backtest import backtest
 import os
+from strategy import ema_crossover
+from backtest.backtest import backtest
+from data.fetch_data import save_to_csv
 
 st.set_page_config(layout="wide")
 
@@ -11,12 +12,27 @@ st.title("📈 EMA Strategy Dashboard")
 
 with st.sidebar:
     st.header("Strategy Settings")
-    pair = st.selectbox("Pair", ["BTCUSDT"], index=0)
-    candle_size = st.selectbox("Candle Size", ["1m", "5m", "15m", "1h", "4h"], index=3)
-    limit = st.number_input("# of Candles", min_value=100, max_value=10000, value=1000, step=100)
 
-    ema_short = st.slider("EMA Short", 3, 50, 5)
-    ema_long = st.slider("EMA Long", 5, 100, 9)
+    # Pair and timeframe selection
+    pair = st.selectbox("Pair", ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT"], index=0)
+    candle_size = st.selectbox("Candle Size", ["1m", "5m", "15m", "1h", "4h"], index=3)
+    limit = st.text_input("# of Candles (e.g. 1000, 5000, 10000)", value="1000")
+
+    # EMA presets
+    st.subheader("EMA Presets")
+    ema_presets = {
+        "EMA 9/20": (9, 20),
+        "EMA 5/9": (5, 9),
+        "EMA 10/50": (10, 50),
+        "EMA 12/26": (12, 26),
+        "EMA 20/50": (20, 50)
+    }
+    selected_preset = st.selectbox("Choose a preset or set manually:", list(ema_presets.keys()), index=0)
+    preset_short, preset_long = ema_presets[selected_preset]
+
+    # Strategy parameters
+    ema_short = st.slider("EMA Short", 3, 50, preset_short)
+    ema_long = st.slider("EMA Long", 5, 100, preset_long)
     stop_loss = st.slider("Stop Loss %", 0.0, 0.1, 0.02)
     take_profit = st.slider("Take Profit %", 0.0, 0.2, 0.04)
 
@@ -24,19 +40,23 @@ with st.sidebar:
 
 if run_btn:
     try:
-        filepath = f"data/{pair}_{candle_size}.csv"
-        df = pd.read_csv(filepath, index_col="timestamp", parse_dates=True).tail(limit)
+        filename = f"{pair}_{candle_size}.csv"
+        filepath = f"data/{filename}"
 
-        # Patch strategy config dynamically
-        from strategy import ema_crossover
+        # Fetch and save data to CSV
+        save_to_csv(pair=pair, timeframe=candle_size, limit=int(limit))
+
+        # Update strategy parameters
         ema_crossover.EMA_SHORT = ema_short
         ema_crossover.EMA_LONG = ema_long
         ema_crossover.STOPLOSS_THRESHOLD = stop_loss
         ema_crossover.TAKEPROFIT_THRESHOLD = take_profit
 
-        df = backtest(df)
+        # Load and backtest
+        df = pd.read_csv(filepath, index_col="timestamp", parse_dates=True)
+        df = backtest(df, short_window=ema_short, long_window=ema_long)
 
-        # Load results
+        # Load trade log
         trades = pd.read_csv("logs/trades.csv")
 
         col1, col2, col3 = st.columns(3)
@@ -57,6 +77,6 @@ if run_btn:
         st.image("logs/backtest_plot.png")
 
     except FileNotFoundError:
-        st.error(f"Data file not found: {filepath}")
+        st.error(f"Data file not found or failed to fetch: {filepath}")
     except Exception as e:
         st.exception(e)

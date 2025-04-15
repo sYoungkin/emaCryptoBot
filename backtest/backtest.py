@@ -9,8 +9,8 @@ warnings.filterwarnings("ignore")
 os.makedirs("logs", exist_ok=True)
 
 
-def backtest(df, initial_balance=10000):
-    df = ema_crossover_strategy(df)
+def backtest(df, initial_balance=10000, short_window=5, long_window=9):
+    ddf = ema_crossover_strategy(df, short_window=short_window, long_window=long_window)
     df['returns'] = df['close'].pct_change().fillna(0)
     df['strategy_returns'] = df['position'] * df['returns']
     df['equity_curve'] = (1 + df['strategy_returns']).cumprod() * initial_balance
@@ -26,8 +26,8 @@ def backtest(df, initial_balance=10000):
     ax1, ax2, ax3 = axes
 
     ax1.plot(df.index, df['close'], label='Close', alpha=0.6)
-    ax1.plot(df.index, df['EMA_SHORT'], label=f'EMA {EMA_SHORT}')
-    ax1.plot(df.index, df['EMA_LONG'], label=f'EMA {EMA_LONG}')
+    ax1.plot(df.index, df['EMA_SHORT'], label=f'EMA {short_window}')
+    ax1.plot(df.index, df['EMA_LONG'], label=f'EMA {long_window}')
 
     if USE_VWAP and 'VWAP' in df.columns:
         ax1.plot(df.index, df['VWAP'], label='VWAP', linestyle='--', alpha=0.5)
@@ -45,7 +45,7 @@ def backtest(df, initial_balance=10000):
     ax1.plot([], [], marker='^', color='green', linestyle='None', label='Buy Signal')
     ax1.plot([], [], marker='v', color='red', linestyle='None', label='Sell Signal')
 
-    ax1.set_title(f'Price with EMA {EMA_SHORT}/{EMA_LONG} and Trade Markers')
+    ax1.set_title(f'Price with EMA {short_window}/{long_window} and Trade Markers')
     ax1.legend()
 
     if USE_RSI and 'RSI' in df.columns:
