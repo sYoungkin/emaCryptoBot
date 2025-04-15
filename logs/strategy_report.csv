@@ -1,8 +1,0 @@
-USE_RSI,USE_MACD,USE_RSI_EXIT,USE_STOPLOSS,Total Return,Win Rate,Max Drawdown,Trades
-False,False,False,False,280.79,0.525,-0.0054,57
-False,False,True,False,280.79,0.525,-0.0054,57
-False,False,False,True,280.79,0.525,-0.0054,57
-False,False,True,True,280.79,0.525,-0.0054,57
-True,False,True,True,280.79,0.525,-0.0054,57
-False,True,True,True,280.79,0.525,-0.0054,57
-True,True,True,True,280.79,0.525,-0.0054,57
