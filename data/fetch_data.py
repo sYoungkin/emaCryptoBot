@@ -4,7 +4,7 @@ import time
 import warnings
 warnings.filterwarnings("ignore")
 
-def fetch_binance_data(symbol='BTC/USDT', timeframe='1m', limit=1000):
+def fetch_binance_data(symbol='BTC/USDT', timeframe='1m', limit=10000):
     exchange = ccxt.binance()
     data = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
     df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])

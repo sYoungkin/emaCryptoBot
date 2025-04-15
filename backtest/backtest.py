@@ -41,6 +41,10 @@ def backtest(df, initial_balance=10000):
             ax1.plot(entry_time, row['entry_price'], marker='v', color='red', markersize=8)
             ax1.plot(exit_time, row['exit_price'], marker='^', color='green', markersize=8)
 
+    # Add dummy markers for legend
+    ax1.plot([], [], marker='^', color='green', linestyle='None', label='Buy Signal')
+    ax1.plot([], [], marker='v', color='red', linestyle='None', label='Sell Signal')
+
     ax1.set_title(f'Price with EMA {EMA_SHORT}/{EMA_LONG} and Trade Markers')
     ax1.legend()
 
