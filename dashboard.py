@@ -103,52 +103,67 @@ if run_btn or compare_btn:
             ema_crossover.TAKEPROFIT_THRESHOLD = take_profit
 
             df = pd.read_csv(filepath, index_col="timestamp", parse_dates=True)
+            df['VWAP'] = (df['close'] * df['volume']).cumsum() / df['volume'].cumsum()
             df = backtest(df, short_window=ema_short, long_window=ema_long)
+            trades_df = pd.read_csv("logs/trades.csv")
 
             total_return = df['equity_curve'].iloc[-1] - 10000
             win_rate = (df['strategy_returns'] > 0).mean()
             max_dd = (df['equity_curve'] / df['equity_curve'].cummax() - 1).min()
-            st.metric("Total Return", f"${total_return:.2f}")
-            st.metric("Win Rate", f"{win_rate:.2%}")
-            st.metric("Max Drawdown", f"{max_dd:.2%}")
 
-            # Interactive chart with markers
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Total Return", f"${total_return:.2f}")
+            col2.metric("Win Rate", f"{win_rate:.2%}")
+            col3.metric("Max Drawdown", f"{max_dd:.2%}")
+
             st.subheader("📈 Price Chart")
+            st.caption("Shows price with EMA overlays and VWAP. Entry (green ▲) and exit (red ▼) markers indicate trades.")
+
             fig_price = go.Figure()
-            fig_price.add_trace(go.Scatter(x=df.index, y=df['close'], name='Close', line=dict(color='gray')))
+            if chart_type == "Candlestick":
+                fig_price.add_trace(go.Candlestick(x=df.index, open=df['open'], high=df['high'], low=df['low'], close=df['close'], name="Candlestick"))
+            else:
+                fig_price.add_trace(go.Scatter(x=df.index, y=df['close'], name='Close', line=dict(color='gray')))
+
             fig_price.add_trace(go.Scatter(x=df.index, y=df['EMA_SHORT'], name=f'EMA {ema_short}', line=dict(color='red')))
             fig_price.add_trace(go.Scatter(x=df.index, y=df['EMA_LONG'], name=f'EMA {ema_long}', line=dict(color='blue')))
-            if 'VWAP' in df.columns:
-                fig_price.add_trace(go.Scatter(x=df.index, y=df['VWAP'], name='VWAP', line=dict(color='orange', dash='dash')))
+            fig_price.add_trace(go.Scatter(x=df.index, y=df['VWAP'], name='VWAP', line=dict(color='orange', dash='dash')))
+
             entries = df[df['signal'] == 1]
             exits = df[df['signal'] == -1]
             fig_price.add_trace(go.Scatter(x=entries.index, y=entries['close'], mode='markers', marker_symbol='triangle-up', marker_color='green', marker_size=10, name='Entry'))
             fig_price.add_trace(go.Scatter(x=exits.index, y=exits['close'], mode='markers', marker_symbol='triangle-down', marker_color='red', marker_size=10, name='Exit'))
-            fig_price.update_layout(height=500)
+
+            fig_price.update_layout( hovermode='x unified', xaxis_title="Time", yaxis_title="Price")
             st.plotly_chart(fig_price, use_container_width=True)
 
-            # RSI
-            st.subheader("🔍 RSI")
-            st.caption("RSI (Relative Strength Index) indicates overbought (>70) or oversold (<30) zones. Useful for timing entries and exits.")
+            st.subheader("🟣 RSI")
+            st.caption("RSI (Relative Strength Index) helps identify overbought (>70) and oversold (<30) conditions.")
             fig_rsi = go.Figure()
             fig_rsi.add_trace(go.Scatter(x=df.index, y=df['RSI'], mode='lines', name='RSI', line=dict(color='purple')))
             fig_rsi.add_hline(y=70, line_dash='dash', line_color='red')
             fig_rsi.add_hline(y=30, line_dash='dash', line_color='green')
-            fig_rsi.update_layout(height=300)
+            fig_rsi.update_layout(hovermode='x unified', xaxis_title="Time", yaxis_title="RSI")
             st.plotly_chart(fig_rsi, use_container_width=True)
 
-            # MACD
             st.subheader("🔵 MACD")
-            st.caption("MACD shows momentum via the difference between short- and long-term EMAs. Signal crossovers may indicate trend changes.")
+            st.caption("MACD shows trend momentum via short/long EMA crossovers. Cross above signal = bullish.")
             fig_macd = go.Figure()
             fig_macd.add_trace(go.Scatter(x=df.index, y=df['MACD'], name='MACD', line=dict(color='blue')))
             fig_macd.add_trace(go.Scatter(x=df.index, y=df['MACD_signal'], name='Signal Line', line=dict(color='orange')))
             fig_macd.add_hline(y=0, line_dash='dash', line_color='gray')
-            fig_macd.update_layout(height=300)
+            fig_macd.update_layout( hovermode='x unified', xaxis_title="Time", yaxis_title="MACD")
             st.plotly_chart(fig_macd, use_container_width=True)
 
-            st.subheader("📄 Trades Log")
-            trades_df = pd.read_csv("logs/trades.csv")
+            if 'volume' in df.columns:
+                st.subheader("📊 Volume")
+                st.caption("Shows trading volume per candle. Helps identify strong price moves with volume confirmation.")
+                fig_vol = go.Figure()
+                fig_vol.add_trace(go.Bar(x=df.index, y=df['volume'], name='Volume', marker_color='lightblue'))
+                fig_vol.update_layout(xaxis_title="Time", yaxis_title="Volume", hovermode='x unified')
+                st.plotly_chart(fig_vol, use_container_width=True)
+
+            st.subheader("📋 Trades Log")
             st.dataframe(trades_df, use_container_width=True)
 
     except FileNotFoundError:
