@@ -34,8 +34,10 @@ with st.sidebar:
 
     ema_short = st.slider("EMA Short", 3, 50, preset_short)
     ema_long = st.slider("EMA Long", 5, 100, preset_long)
-    stop_loss = st.slider("Stop Loss %", 0.0, 0.1, 0.02)
-    take_profit = st.slider("Take Profit %", 0.0, 0.2, 0.04)
+    initial_balance = st.number_input("Initial Capital ($)", min_value=100, max_value=1_000_000, value=10000, step=100, key="initial_balance_input")
+    leverage = st.slider("Leverage", 1, 20, 1, key="leverage_slider")
+    stop_loss = st.slider("Stop Loss %", 0.0, 0.1, 0.02, key="stop_loss_slider")
+    take_profit = st.slider("Take Profit %", 0.0, 0.2, 0.04, key="take_profit_slider")
     chart_type = st.radio("Price Chart Type", ["Line", "Candlestick"], index=0)
 
     run_btn = st.button("🚀 Run Backtest")
@@ -60,7 +62,7 @@ if run_btn or compare_btn:
                 ema_crossover.TAKEPROFIT_THRESHOLD = take_profit
 
                 df = pd.read_csv(filepath, index_col="timestamp", parse_dates=True)
-                df = backtest(df, short_window=short, long_window=long)
+                df = backtest(df, short_window=short, long_window=long, initial_balance=initial_balance, leverage=leverage)
                 total_return = df['equity_curve'].iloc[-1] - 10000
                 win_rate = (df['strategy_returns'] > 0).mean()
                 max_dd = (df['equity_curve'] / df['equity_curve'].cummax() - 1).min()
@@ -104,7 +106,7 @@ if run_btn or compare_btn:
 
             df = pd.read_csv(filepath, index_col="timestamp", parse_dates=True)
             df['VWAP'] = (df['close'] * df['volume']).cumsum() / df['volume'].cumsum()
-            df = backtest(df, short_window=ema_short, long_window=ema_long)
+            df = backtest(df, short_window=ema_short, long_window=ema_long, initial_balance=initial_balance, leverage=leverage)
             trades_df = pd.read_csv("logs/trades.csv")
 
             total_return = df['equity_curve'].iloc[-1] - 10000
@@ -134,7 +136,7 @@ if run_btn or compare_btn:
             fig_price.add_trace(go.Scatter(x=entries.index, y=entries['close'], mode='markers', marker_symbol='triangle-up', marker_color='green', marker_size=10, name='Entry'))
             fig_price.add_trace(go.Scatter(x=exits.index, y=exits['close'], mode='markers', marker_symbol='triangle-down', marker_color='red', marker_size=10, name='Exit'))
 
-            fig_price.update_layout( hovermode='x unified', xaxis_title="Time", yaxis_title="Price")
+            fig_price.update_layout(height=500, hovermode='x unified', xaxis_title="Time", yaxis_title="Price")
             st.plotly_chart(fig_price, use_container_width=True)
 
             st.subheader("🟣 RSI")
@@ -143,7 +145,7 @@ if run_btn or compare_btn:
             fig_rsi.add_trace(go.Scatter(x=df.index, y=df['RSI'], mode='lines', name='RSI', line=dict(color='purple')))
             fig_rsi.add_hline(y=70, line_dash='dash', line_color='red')
             fig_rsi.add_hline(y=30, line_dash='dash', line_color='green')
-            fig_rsi.update_layout(hovermode='x unified', xaxis_title="Time", yaxis_title="RSI")
+            fig_rsi.update_layout(height=300, hovermode='x unified', xaxis_title="Time", yaxis_title="RSI")
             st.plotly_chart(fig_rsi, use_container_width=True)
 
             st.subheader("🔵 MACD")
@@ -152,7 +154,7 @@ if run_btn or compare_btn:
             fig_macd.add_trace(go.Scatter(x=df.index, y=df['MACD'], name='MACD', line=dict(color='blue')))
             fig_macd.add_trace(go.Scatter(x=df.index, y=df['MACD_signal'], name='Signal Line', line=dict(color='orange')))
             fig_macd.add_hline(y=0, line_dash='dash', line_color='gray')
-            fig_macd.update_layout( hovermode='x unified', xaxis_title="Time", yaxis_title="MACD")
+            fig_macd.update_layout(height=300, hovermode='x unified', xaxis_title="Time", yaxis_title="MACD")
             st.plotly_chart(fig_macd, use_container_width=True)
 
             if 'volume' in df.columns:
@@ -160,7 +162,7 @@ if run_btn or compare_btn:
                 st.caption("Shows trading volume per candle. Helps identify strong price moves with volume confirmation.")
                 fig_vol = go.Figure()
                 fig_vol.add_trace(go.Bar(x=df.index, y=df['volume'], name='Volume', marker_color='lightblue'))
-                fig_vol.update_layout(xaxis_title="Time", yaxis_title="Volume", hovermode='x unified')
+                fig_vol.update_layout(height=250, xaxis_title="Time", yaxis_title="Volume", hovermode='x unified')
                 st.plotly_chart(fig_vol, use_container_width=True)
 
             st.subheader("📋 Trades Log")

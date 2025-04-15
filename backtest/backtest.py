@@ -9,10 +9,10 @@ warnings.filterwarnings("ignore")
 os.makedirs("logs", exist_ok=True)
 
 
-def backtest(df, initial_balance=10000, short_window=5, long_window=9):
+def backtest(df, initial_balance=10000, short_window=5, long_window=9, leverage=1):
     ddf = ema_crossover_strategy(df, short_window=short_window, long_window=long_window)
     df['returns'] = df['close'].pct_change().fillna(0)
-    df['strategy_returns'] = df['position'] * df['returns']
+    df['strategy_returns'] = df['position'] * df['returns'] * leverage
     df['equity_curve'] = (1 + df['strategy_returns']).cumprod() * initial_balance
 
     total_return = df['equity_curve'].iloc[-1] - initial_balance
