@@ -1,6 +1,8 @@
 import ccxt
 import pandas as pd
 import time
+import warnings
+warnings.filterwarnings("ignore")
 
 def fetch_binance_data(symbol='BTC/USDT', timeframe='1m', limit=1000):
     exchange = ccxt.binance()

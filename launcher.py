@@ -12,6 +12,8 @@
 # File: launcher.py
 import os
 import sys
+import warnings
+warnings.filterwarnings("ignore")
 
 options = {
     '1': 'Fetch Binance OHLCV data',
