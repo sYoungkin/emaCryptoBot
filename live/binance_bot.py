@@ -87,7 +87,7 @@ def run_live_bot(symbol='BTC/USDT', timeframe='1m', capital=100, stop_loss_pct=0
         #         'stopLimitTimeInForce': 'GTC'
         #     }
         # )
-        pass
+            pass
         log_trade(timestamp, symbol, 'BUY', price, amount, mode)
 
     elif latest_signal == -1:
@@ -109,7 +109,7 @@ def run_live_bot(symbol='BTC/USDT', timeframe='1m', capital=100, stop_loss_pct=0
         #         'stopLimitTimeInForce': 'GTC'
         #     }
         # )
-        pass
+            pass
         log_trade(timestamp, symbol, 'SELL', price, amount, mode)
 
     else:
