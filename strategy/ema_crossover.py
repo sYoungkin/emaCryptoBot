@@ -1,26 +1,28 @@
-# File: strategy/ema_crossover.py (with trade logging)
+# File: strategy/ema_crossover.py (Simplified EMA-only strategy with full features)
 import pandas as pd
 import numpy as np
 import warnings
 warnings.filterwarnings("ignore")
 
-USE_RSI = False
-USE_MACD = False
-USE_VWAP = False
-USE_VERBOSE = True
-USE_RSI_EXIT = True
+# Configurable EMA windows
+EMA_SHORT = 5
+EMA_LONG = 9
+
+USE_RSI = True
+USE_MACD = True
+USE_VWAP = True
+
 USE_STOPLOSS = True
 USE_TAKEPROFIT = True
-
 STOPLOSS_THRESHOLD = 0.02
 TAKEPROFIT_THRESHOLD = 0.04
 
 
-def ema_crossover_strategy(df, short_window=9, long_window=20):
-    df['EMA9'] = df['close'].ewm(span=short_window, adjust=False).mean()
-    df['EMA20'] = df['close'].ewm(span=long_window, adjust=False).mean()
+def ema_crossover_strategy(df, short_window=EMA_SHORT, long_window=EMA_LONG):
+    df['EMA_SHORT'] = df['close'].ewm(span=short_window, adjust=False).mean()
+    df['EMA_LONG'] = df['close'].ewm(span=long_window, adjust=False).mean()
 
-    if USE_RSI or USE_RSI_EXIT:
+    if USE_RSI:
         df['RSI'] = compute_rsi(df['close'])
     if USE_MACD:
         df['MACD'], df['MACD_signal'] = compute_macd(df['close'])
@@ -33,64 +35,56 @@ def ema_crossover_strategy(df, short_window=9, long_window=20):
     entry_price = 0
     trade_id = 0
     open_trade_index = None
-
     trades = []
 
     for i in range(1, len(df)):
-        ema_buy = df['EMA9'].iloc[i] > df['EMA20'].iloc[i]
-        ema_sell = df['EMA9'].iloc[i] < df['EMA20'].iloc[i]
+        ema_buy = df['EMA_SHORT'].iloc[i] > df['EMA_LONG'].iloc[i]
+        ema_sell = df['EMA_SHORT'].iloc[i] < df['EMA_LONG'].iloc[i]
 
-        rsi_buy = df['RSI'].iloc[i] < 40 if USE_RSI else True
-        rsi_sell = df['RSI'].iloc[i] > 60 if USE_RSI else True
-
-        macd_buy = df['MACD'].iloc[i] > df['MACD_signal'].iloc[i] if USE_MACD else True
-        macd_sell = df['MACD'].iloc[i] < df['MACD_signal'].iloc[i] if USE_MACD else True
+        price = df['close'].iloc[i]
 
         # Entry
         if position == 0:
-            if ema_buy and rsi_buy and macd_buy:
+            if ema_buy:
                 df.at[df.index[i], 'signal'] = 1
                 df.at[df.index[i], 'trade_id'] = trade_id
-                entry_price = df['close'].iloc[i]
+                entry_price = price
                 open_trade_index = df.index[i]
                 position = 1
-            elif ema_sell and rsi_sell and macd_sell:
+            elif ema_sell:
                 df.at[df.index[i], 'signal'] = -1
                 df.at[df.index[i], 'trade_id'] = trade_id
-                entry_price = df['close'].iloc[i]
+                entry_price = price
                 open_trade_index = df.index[i]
                 position = -1
 
         # Long exit
         elif position == 1:
-            exit_price = df['close'].iloc[i]
-            stop_loss_hit = exit_price < entry_price * (1 - STOPLOSS_THRESHOLD) if USE_STOPLOSS else False
-            take_profit_hit = exit_price > entry_price * (1 + TAKEPROFIT_THRESHOLD) if USE_TAKEPROFIT else False
-            rsi_exit = df['RSI'].iloc[i] > 70 if USE_RSI_EXIT else False
-            if stop_loss_hit or take_profit_hit or rsi_exit:
+            stop_loss_hit = price < entry_price * (1 - STOPLOSS_THRESHOLD) if USE_STOPLOSS else False
+            take_profit_hit = price > entry_price * (1 + TAKEPROFIT_THRESHOLD) if USE_TAKEPROFIT else False
+            crossover_exit = ema_sell
+            if stop_loss_hit or take_profit_hit or crossover_exit:
                 df.at[df.index[i], 'signal'] = -1
                 df.at[df.index[i], 'trade_id'] = trade_id
-                pnl = exit_price - entry_price
-                trades.append([trade_id, open_trade_index, df.index[i], entry_price, exit_price, pnl])
+                pnl = price - entry_price
+                trades.append([trade_id, open_trade_index, df.index[i], entry_price, price, pnl])
                 position = 0
                 trade_id += 1
 
         # Short exit
         elif position == -1:
-            exit_price = df['close'].iloc[i]
-            stop_loss_hit = exit_price > entry_price * (1 + STOPLOSS_THRESHOLD) if USE_STOPLOSS else False
-            take_profit_hit = exit_price < entry_price * (1 - TAKEPROFIT_THRESHOLD) if USE_TAKEPROFIT else False
-            rsi_exit = df['RSI'].iloc[i] < 30 if USE_RSI_EXIT else False
-            if stop_loss_hit or take_profit_hit or rsi_exit:
+            stop_loss_hit = price > entry_price * (1 + STOPLOSS_THRESHOLD) if USE_STOPLOSS else False
+            take_profit_hit = price < entry_price * (1 - TAKEPROFIT_THRESHOLD) if USE_TAKEPROFIT else False
+            crossover_exit = ema_buy
+            if stop_loss_hit or take_profit_hit or crossover_exit:
                 df.at[df.index[i], 'signal'] = 1
                 df.at[df.index[i], 'trade_id'] = trade_id
-                pnl = entry_price - exit_price
-                trades.append([trade_id, open_trade_index, df.index[i], entry_price, exit_price, pnl])
+                pnl = entry_price - price
+                trades.append([trade_id, open_trade_index, df.index[i], entry_price, price, pnl])
                 position = 0
                 trade_id += 1
 
     df['position'] = df['signal'].replace(to_replace=0, method='ffill').fillna(0)
-
     trades_df = pd.DataFrame(trades, columns=['trade_id', 'entry_time', 'exit_time', 'entry_price', 'exit_price', 'pnl'])
     trades_df.to_csv('logs/trades.csv', index=False)
     return df
