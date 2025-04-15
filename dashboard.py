@@ -11,7 +11,7 @@ from datetime import datetime
 
 st.set_page_config(layout="wide")
 
-st.title("📈 EMA Strategy Dashboard")
+st.title("\U0001F4C8 EMA Strategy Dashboard")
 
 with st.sidebar:
     st.header("Strategy Settings")
@@ -40,19 +40,18 @@ with st.sidebar:
     take_profit = st.slider("Take Profit %", 0.0, 0.2, 0.04, key="take_profit_slider")
     chart_type = st.radio("Price Chart Type", ["Line", "Candlestick"], index=0)
 
-    run_btn = st.button("🚀 Run Backtest")
-    compare_btn = st.button("📈 Compare All Presets")
+    run_btn = st.button("\U0001F680 Run Backtest")
+    compare_btn = st.button("\U0001F4C8 Compare All Presets")
 
 if run_btn or compare_btn:
     try:
         filename = f"{pair}_{candle_size}.csv"
         filepath = f"data/{filename}"
-
         save_to_csv(pair=pair, timeframe=candle_size, limit=int(limit))
         results = []
 
         if compare_btn:
-            st.subheader(f"📊 EMA Preset Comparison for {pair} on {candle_size} candles")
+            st.subheader(f"\U0001F4CA EMA Preset Comparison for {pair} on {candle_size} candles")
             st.caption("Compares total return, win rate, drawdown, and trade frequency for multiple EMA crossover configurations. Helps identify which preset is most effective for the selected pair and timeframe.")
 
             for name, (short, long) in ema_presets.items():
@@ -63,7 +62,7 @@ if run_btn or compare_btn:
 
                 df = pd.read_csv(filepath, index_col="timestamp", parse_dates=True)
                 df = backtest(df, short_window=short, long_window=long, initial_balance=initial_balance, leverage=leverage)
-                total_return = df['equity_curve'].iloc[-1] - 10000
+                total_return = df['equity_curve'].iloc[-1] - initial_balance
                 win_rate = (df['strategy_returns'] > 0).mean()
                 max_dd = (df['equity_curve'] / df['equity_curve'].cummax() - 1).min()
                 trade_count = df['position'].diff().abs().sum() / 2
@@ -75,28 +74,19 @@ if run_btn or compare_btn:
             best = df_results.sort_values(by='Return ($)', ascending=False).iloc[0]
 
             st.dataframe(df_results, use_container_width=True)
-            st.success(f"🏆 Best preset: {best['Preset']} with ${best['Return ($)']} return")
+            st.success(f"\U0001F3C6 Best preset: {best['Preset']} with ${best['Return ($)']} return")
 
-            st.caption("📊 Bar Chart: Compares the total return of each EMA preset. Color intensity reflects the win rate.")
+            st.caption("\U0001F4CA Bar Chart: Compares the total return of each EMA preset. Color intensity reflects the win rate.")
             fig_bar = px.bar(df_results, x='Preset', y='Return ($)', color='Win Rate (%)', title="Total Return by EMA Preset")
             st.plotly_chart(fig_bar, use_container_width=True)
 
-            st.caption("🟢 Scatter Plot: Shows trade-off between win rate and return. Larger bubbles = more trades. Lower drawdown is better.")
-            fig_scatter = px.scatter(
-                df_results,
-                x='Win Rate (%)',
-                y='Return ($)',
-                text='Preset',
-                size='Trades',
-                color='Drawdown (%)',
-                title="Win Rate vs Return by Preset",
-                hover_name='Preset'
-            )
+            st.caption("\U0001F7E2 Scatter Plot: Shows trade-off between win rate and return. Larger bubbles = more trades. Lower drawdown is better.")
+            fig_scatter = px.scatter(df_results, x='Win Rate (%)', y='Return ($)', text='Preset', size='Trades', color='Drawdown (%)', title="Win Rate vs Return by Preset", hover_name='Preset')
             fig_scatter.update_traces(textposition='top center')
             st.plotly_chart(fig_scatter, use_container_width=True)
 
         elif run_btn:
-            st.subheader(f"📉 Backtest Result for {pair} on {candle_size}")
+            st.subheader(f"\U0001F4C9 Backtest Result for {pair} on {candle_size}")
             st.caption("Price chart with EMA crossovers and VWAP. Entry/exit markers are plotted. RSI and MACD show overbought/oversold zones.")
 
             ema_crossover.EMA_SHORT = ema_short
@@ -109,7 +99,7 @@ if run_btn or compare_btn:
             df = backtest(df, short_window=ema_short, long_window=ema_long, initial_balance=initial_balance, leverage=leverage)
             trades_df = pd.read_csv("logs/trades.csv")
 
-            total_return = df['equity_curve'].iloc[-1] - 10000
+            total_return = df['equity_curve'].iloc[-1] - initial_balance
             win_rate = (df['strategy_returns'] > 0).mean()
             max_dd = (df['equity_curve'] / df['equity_curve'].cummax() - 1).min()
 
@@ -118,7 +108,19 @@ if run_btn or compare_btn:
             col2.metric("Win Rate", f"{win_rate:.2%}")
             col3.metric("Max Drawdown", f"{max_dd:.2%}")
 
-            st.subheader("📈 Price Chart")
+            st.subheader("📉 Equity Curve")
+            st.caption("Shows the account balance over time as trades are executed with the given leverage.")
+            fig_equity = go.Figure()
+            fig_equity.add_trace(go.Scatter(
+                x=df.index,
+                y=df['equity_curve'],
+                name='Equity',
+                line=dict(color='black')
+            ))
+            fig_equity.update_layout(height=300, xaxis_title="Time", yaxis_title="Equity ($)", hovermode='x unified')
+            st.plotly_chart(fig_equity, use_container_width=True)
+
+            st.subheader("\U0001F4C8 Price Chart")
             st.caption("Shows price with EMA overlays and VWAP. Entry (green ▲) and exit (red ▼) markers indicate trades.")
 
             fig_price = go.Figure()
@@ -139,7 +141,7 @@ if run_btn or compare_btn:
             fig_price.update_layout(height=500, hovermode='x unified', xaxis_title="Time", yaxis_title="Price")
             st.plotly_chart(fig_price, use_container_width=True)
 
-            st.subheader("🟣 RSI")
+            st.subheader("\U0001F7E3 RSI")
             st.caption("RSI (Relative Strength Index) helps identify overbought (>70) and oversold (<30) conditions.")
             fig_rsi = go.Figure()
             fig_rsi.add_trace(go.Scatter(x=df.index, y=df['RSI'], mode='lines', name='RSI', line=dict(color='purple')))
@@ -148,7 +150,7 @@ if run_btn or compare_btn:
             fig_rsi.update_layout(height=300, hovermode='x unified', xaxis_title="Time", yaxis_title="RSI")
             st.plotly_chart(fig_rsi, use_container_width=True)
 
-            st.subheader("🔵 MACD")
+            st.subheader("\U0001F535 MACD")
             st.caption("MACD shows trend momentum via short/long EMA crossovers. Cross above signal = bullish.")
             fig_macd = go.Figure()
             fig_macd.add_trace(go.Scatter(x=df.index, y=df['MACD'], name='MACD', line=dict(color='blue')))
@@ -158,14 +160,14 @@ if run_btn or compare_btn:
             st.plotly_chart(fig_macd, use_container_width=True)
 
             if 'volume' in df.columns:
-                st.subheader("📊 Volume")
+                st.subheader("\U0001F4CA Volume")
                 st.caption("Shows trading volume per candle. Helps identify strong price moves with volume confirmation.")
                 fig_vol = go.Figure()
                 fig_vol.add_trace(go.Bar(x=df.index, y=df['volume'], name='Volume', marker_color='lightblue'))
                 fig_vol.update_layout(height=250, xaxis_title="Time", yaxis_title="Volume", hovermode='x unified')
                 st.plotly_chart(fig_vol, use_container_width=True)
 
-            st.subheader("📋 Trades Log")
+            st.subheader("\U0001F4CB Trades Log")
             st.dataframe(trades_df, use_container_width=True)
 
     except FileNotFoundError:
