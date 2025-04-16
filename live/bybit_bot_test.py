@@ -49,13 +49,16 @@ def test_bot(symbol='BTC/USDT', timeframe='1m', capital=100, stop_loss_pct=0.02)
     latest_signal = df['signal'].iloc[-1]
     price = df['close'].iloc[-1]
     timestamp = df.index[-1]
-    position = df['position'].iloc[-1]
+    #position = df['position'].iloc[-1]
 
     base = symbol.split('/')[0]
     stop_amount = capital * stop_loss_pct
     stop_distance = stop_amount / price
+
     position_size = round(capital / price, 6)
     position_value = round(position_size * price, 2)
+
+
 
     if latest_signal == 1:  # BUY
         sl_price = round(price - stop_amount / position_size, 2)

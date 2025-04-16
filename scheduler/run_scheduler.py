@@ -1,6 +1,8 @@
 # File: schedule/run_scheduler.py
 from apscheduler.schedulers.blocking import BlockingScheduler
 import subprocess
+import warnings
+warnings.filterwarnings("ignore")
 
 scheduler = BlockingScheduler()
 
@@ -15,7 +17,7 @@ def run_test_bot():
     print("\n⏳ Scheduler triggered...")
 
     subprocess.run([
-        "python", "live/bybit_bot_test.py",
+        "python", "-m", "live.bybit_bot_test",
         "--symbol", SYMBOL,
         "--timeframe", TIMEFRAME,
         "--capital", CAPITAL,
@@ -24,4 +26,5 @@ def run_test_bot():
 
 if __name__ == "__main__":
     print(f"📅 Scheduler started. Running every 1 minute for {SYMBOL} @ {TIMEFRAME}")
+    run_test_bot()  # ✅ run once right now
     scheduler.start()
