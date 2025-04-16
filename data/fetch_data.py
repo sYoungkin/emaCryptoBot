@@ -1,3 +1,5 @@
+## python data/fetch_bybit_data.py --pair BTCUSDT --timeframe 1h --limit 1000
+
 import ccxt
 import pandas as pd
 import argparse
