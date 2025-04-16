@@ -6,7 +6,7 @@ import requests
 from datetime import datetime
 from dotenv import load_dotenv
 from strategy.ema_crossover import ema_crossover_strategy
-from archive.fetch_data import fetch_binance_data  # TODO: create fetch_bybit_data if needed
+from archive.fetch_data_binance import fetch_binance_data  # TODO: create fetch_bybit_data if needed
 import argparse
 
 load_dotenv()
