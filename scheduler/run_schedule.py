@@ -1,16 +1,27 @@
+# File: schedule/run_scheduler.py
 from apscheduler.schedulers.blocking import BlockingScheduler
-from live.bybit_bot_test import test_bot
+import subprocess
 
 scheduler = BlockingScheduler()
 
-# Modify this to change timing (e.g., every hour, or custom cron)
-@scheduler.scheduled_job('cron', minute='0', hour='*/1')  # every hour
-# @scheduler.scheduled_job('interval', minutes=30)  # every 30 minutes
-# @scheduler.scheduled_job('cron', minute='15', hour='9-17', day_of_week='mon-fri')  # market hours
+# 🔧 Customize your parameters here
+SYMBOL = "BTC/USDT"
+TIMEFRAME = "1m"
+CAPITAL = "500"
+STOP_LOSS = "0.02"
 
-def scheduled_job():
-    print("Running scheduled trading bot...")
-    run_live_bot()
+@scheduler.scheduled_job('interval', minutes=1)
+def run_test_bot():
+    print("\n⏳ Scheduler triggered...")
+
+    subprocess.run([
+        "python", "live/bybit_bot_test.py",
+        "--symbol", SYMBOL,
+        "--timeframe", TIMEFRAME,
+        "--capital", CAPITAL,
+        "--stop", STOP_LOSS
+    ], check=True)
 
 if __name__ == "__main__":
+    print(f"📅 Scheduler started. Running every 1 minute for {SYMBOL} @ {TIMEFRAME}")
     scheduler.start()
