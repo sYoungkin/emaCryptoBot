@@ -1,4 +1,4 @@
-# File: strategy/ema_crossover.py (Simplified EMA-only strategy with full features)
+# File: strategy/ema_crossover.py (Simplified EMA-only strategy with enhanced trade logs)
 import pandas as pd
 import numpy as np
 import warnings
@@ -18,7 +18,7 @@ STOPLOSS_THRESHOLD = 0.02
 TAKEPROFIT_THRESHOLD = 0.04
 
 
-def ema_crossover_strategy(df, short_window=EMA_SHORT, long_window=EMA_LONG):
+def ema_crossover_strategy(df, short_window=EMA_SHORT, long_window=EMA_LONG, capital=10000):
     df['EMA_SHORT'] = df['close'].ewm(span=short_window, adjust=False).mean()
     df['EMA_LONG'] = df['close'].ewm(span=long_window, adjust=False).mean()
 
@@ -37,55 +37,87 @@ def ema_crossover_strategy(df, short_window=EMA_SHORT, long_window=EMA_LONG):
     open_trade_index = None
     trades = []
 
+    symbol = "BTC/USDT"  # can be parameterized later
+    risk_pct = 0.02
+    risk_amount = capital * risk_pct
+
     for i in range(1, len(df)):
         ema_buy = df['EMA_SHORT'].iloc[i] > df['EMA_LONG'].iloc[i]
         ema_sell = df['EMA_SHORT'].iloc[i] < df['EMA_LONG'].iloc[i]
 
         price = df['close'].iloc[i]
+        time = df.index[i]
 
-        # Entry
         if position == 0:
-            if ema_buy:
-                df.at[df.index[i], 'signal'] = 1
-                df.at[df.index[i], 'trade_id'] = trade_id
+            if ema_buy or ema_sell:
+                position = 1 if ema_buy else -1
                 entry_price = price
-                open_trade_index = df.index[i]
-                position = 1
-            elif ema_sell:
-                df.at[df.index[i], 'signal'] = -1
+                stop_loss_price = entry_price * (1 - STOPLOSS_THRESHOLD) if position == 1 else entry_price * (1 + STOPLOSS_THRESHOLD)
+                take_profit_price = entry_price * (1 + TAKEPROFIT_THRESHOLD) if position == 1 else entry_price * (1 - TAKEPROFIT_THRESHOLD)
+                stop_distance = abs(entry_price - stop_loss_price)
+                lot_size = risk_amount / stop_distance if stop_distance != 0 else 0
+                reward_amount = lot_size * abs(take_profit_price - entry_price)
+                df.at[df.index[i], 'signal'] = position
                 df.at[df.index[i], 'trade_id'] = trade_id
-                entry_price = price
-                open_trade_index = df.index[i]
-                position = -1
-
-        # Long exit
+                open_trade_index = time
+        
         elif position == 1:
-            stop_loss_hit = price < entry_price * (1 - STOPLOSS_THRESHOLD) if USE_STOPLOSS else False
-            take_profit_hit = price > entry_price * (1 + TAKEPROFIT_THRESHOLD) if USE_TAKEPROFIT else False
-            crossover_exit = ema_sell
-            if stop_loss_hit or take_profit_hit or crossover_exit:
+            stop_hit = price < stop_loss_price
+            tp_hit = price > take_profit_price
+            if stop_hit or tp_hit or ema_sell:
+                pnl = (price - entry_price) * lot_size
+                pips = (price - entry_price) * 100
+                trades.append([
+                    open_trade_index.strftime('%Y-%m-%d'),
+                    symbol.replace('/', ''),
+                    'Buy',
+                    round(entry_price, 2),
+                    round(stop_loss_price, 2),
+                    round(take_profit_price, 2),
+                    round(price, 2),
+                    round(pips, 1),
+                    round(risk_amount, 2),
+                    round(reward_amount, 2),
+                    f"1:{round(reward_amount/risk_amount, 1)}",
+                    round(lot_size, 6),
+                    'Win' if pnl > 0 else 'Loss'
+                ])
                 df.at[df.index[i], 'signal'] = -1
                 df.at[df.index[i], 'trade_id'] = trade_id
-                pnl = price - entry_price
-                trades.append([trade_id, open_trade_index, df.index[i], entry_price, price, pnl])
                 position = 0
                 trade_id += 1
 
-        # Short exit
         elif position == -1:
-            stop_loss_hit = price > entry_price * (1 + STOPLOSS_THRESHOLD) if USE_STOPLOSS else False
-            take_profit_hit = price < entry_price * (1 - TAKEPROFIT_THRESHOLD) if USE_TAKEPROFIT else False
-            crossover_exit = ema_buy
-            if stop_loss_hit or take_profit_hit or crossover_exit:
+            stop_hit = price > stop_loss_price
+            tp_hit = price < take_profit_price
+            if stop_hit or tp_hit or ema_buy:
+                pnl = (entry_price - price) * lot_size
+                pips = (entry_price - price) * 100
+                trades.append([
+                    open_trade_index.strftime('%Y-%m-%d'),
+                    symbol.replace('/', ''),
+                    'Sell',
+                    round(entry_price, 2),
+                    round(stop_loss_price, 2),
+                    round(take_profit_price, 2),
+                    round(price, 2),
+                    round(pips, 1),
+                    round(risk_amount, 2),
+                    round(reward_amount, 2),
+                    f"1:{round(reward_amount/risk_amount, 1)}",
+                    round(lot_size, 6),
+                    'Win' if pnl > 0 else 'Loss'
+                ])
                 df.at[df.index[i], 'signal'] = 1
                 df.at[df.index[i], 'trade_id'] = trade_id
-                pnl = entry_price - price
-                trades.append([trade_id, open_trade_index, df.index[i], entry_price, price, pnl])
                 position = 0
                 trade_id += 1
 
     df['position'] = df['signal'].replace(to_replace=0, method='ffill').fillna(0)
-    trades_df = pd.DataFrame(trades, columns=['trade_id', 'entry_time', 'exit_time', 'entry_price', 'exit_price', 'pnl'])
+    trades_df = pd.DataFrame(trades, columns=[
+        'Date', 'Pair', 'Buy/Sell', 'Entry Price', 'Stop Loss', 'Take Profit', 'Exit Price', 'Pips Gained/Lost',
+        'Risk (USD)', 'Reward (USD)', 'R:R Ratio', 'Lot Size', 'Result'
+    ])
     trades_df.to_csv('logs/trades.csv', index=False)
     return df
 
