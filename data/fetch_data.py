@@ -1,4 +1,5 @@
-## python data/fetch_bybit_data.py --pair BTCUSDT --timeframe 1h --limit 1000
+# File: data/fetch_bybit_data.py
+# Usage: python data/fetch_bybit_data.py --pair BTCUSDT --timeframe 1h --limit 1000
 
 import ccxt
 import pandas as pd
@@ -8,8 +9,12 @@ import warnings
 warnings.filterwarnings("ignore")
 
 def fetch_bybit_data(symbol='BTC/USDT', timeframe='1h', limit=1000):
-    exchange = ccxt.bybit()
-    exchange.set_sandbox_mode(True)  # ✅ Use Bybit testnet for testing
+    exchange = ccxt.bybit({
+        'options': {
+            'defaultType': 'spot'  # Ensure it's pulling spot market data
+        }
+    })
+    # 🔓 No sandbox mode – using live data
     data = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
     df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
@@ -32,3 +37,5 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     save_to_csv(pair=args.pair, timeframe=args.timeframe, limit=args.limit)
+
+
