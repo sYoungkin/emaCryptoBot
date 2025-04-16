@@ -49,11 +49,9 @@ def test_bot(symbol='BTC/USDT', timeframe='1m', capital=100, stop_loss_pct=0.02)
     latest_signal = df['signal'].iloc[-1]
     price = df['close'].iloc[-1]
     timestamp = df.index[-1]
-    #position = df['position'].iloc[-1]
 
     base = symbol.split('/')[0]
     stop_amount = capital * stop_loss_pct
-    stop_distance = stop_amount / price
 
     position_size = round(capital / price, 6)
     position_value = round(position_size * price, 2)
@@ -61,16 +59,20 @@ def test_bot(symbol='BTC/USDT', timeframe='1m', capital=100, stop_loss_pct=0.02)
 
 
     if latest_signal == 1:  # BUY
-        sl_price = round(price - stop_amount / position_size, 2)
-        tp_price = round(price + stop_amount * 2 / position_size, 2)
+        sl_price = round(price - stop_amount , 2)
+        tp_price = round(price + (stop_amount * 2) , 2)
+        sl_usd = round(price - sl_price, 2) * position_size
+        tp_usd = round(tp_price - price, 2) * position_size
         direction = "🟢 BUY"
 
     elif latest_signal == -1:  # SELL
-        sl_price = round(price + stop_amount / position_size, 2)
-        tp_price = round(price - stop_amount * 2 / position_size, 2)
+        sl_price = round(price + stop_amount , 2)
+        tp_price = round(price - (stop_amount * 2), 2)
+        sl_usd = round(sl_price - price, 2) * position_size
+        tp_usd = round(price - tp_price, 2) * position_size
         direction = "🔴 SELL"
     else:
-        sl_price = tp_price = None
+        sl_price = tp_price = sl_usd = tp_usd = None
         direction = "⚪ HOLD"
 
     print(f"\n🕒 Timestamp: {timestamp}")
@@ -83,13 +85,12 @@ def test_bot(symbol='BTC/USDT', timeframe='1m', capital=100, stop_loss_pct=0.02)
 
     # Action plan and alert (only on signal)
     if latest_signal != 0:
-        potential_pnl = round(abs(tp_price - price) * position_size, 2)
         message = (
             f"{direction} Signal for {symbol}\n"
             f"Price: ${price}\n"
-            f"SL: {sl_price} | TP: {tp_price}\n"
+            f"SL: {sl_price} (-${round(sl_usd, 2)}) | TP: {tp_price} (+${round(tp_usd, 2)})\n"
             f"Position: {position_size} {base} (~${position_value})\n"
-            f"Risking ${round(stop_amount, 2)} | Potential: ${potential_pnl}"
+            f"Risking ${round(stop_amount, 2)} | Potential: ${round(tp_usd, 2)}"
         )
         print(f"\n💡 Action Plan:\n  → {message.replace(chr(10), chr(10)+'  → ')}")
         send_telegram_alert(message)
