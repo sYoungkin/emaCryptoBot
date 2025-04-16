@@ -20,7 +20,7 @@ USE_TAKEPROFIT = True
 STOPLOSS_THRESHOLD = 0.02
 TAKEPROFIT_THRESHOLD = 0.04
 
-def ema_crossover_strategy(df, symbol="BTC/USDT", short_window=EMA_SHORT, long_window=EMA_LONG, capital=10000):
+def ema_crossover_strategy(df, symbol="BTC/USDT", short_window=EMA_SHORT, long_window=EMA_LONG, capital=10000, log_trades=True):
     df['EMA_SHORT'] = df['close'].ewm(span=short_window, adjust=False).mean()
     df['EMA_LONG'] = df['close'].ewm(span=long_window, adjust=False).mean()
 
@@ -119,7 +119,8 @@ def ema_crossover_strategy(df, symbol="BTC/USDT", short_window=EMA_SHORT, long_w
         'Date', 'Pair', 'Buy/Sell', 'Entry Price', 'Stop Loss', 'Take Profit',
         'Exit Price', 'Pips Gained/Lost', 'Risk (USD)', 'Reward (USD)', 'R:R Ratio', 'Lot Size', 'Result'
     ])
-    trades_df.to_csv('logs/trades.csv', index=False)
+    if log_trades:
+        trades_df.to_csv('logs/trades.csv', index=False)
     return df
 
 def compute_rsi(series, period=14):

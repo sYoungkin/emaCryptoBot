@@ -32,7 +32,7 @@ try:
     df["volume"] = 1
     df.index = log_df.index
 
-    df = ema_crossover_strategy(df, symbol="BTC/USDT", short_window=ema_short, long_window=ema_long, capital=10000)
+    df = ema_crossover_strategy(df, symbol="BTC/USDT", short_window=ema_short, long_window=ema_long, capital=10000, log_trades=False)
 
     st.subheader("\U0001F4C8 Price Chart with Signals")
     fig = go.Figure()
