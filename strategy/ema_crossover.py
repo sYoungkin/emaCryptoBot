@@ -21,9 +21,11 @@ STOPLOSS_THRESHOLD = 0.02
 TAKEPROFIT_THRESHOLD = 0.04
 
 def ema_crossover_strategy(df, symbol="BTC/USDT", short_window=EMA_SHORT, long_window=EMA_LONG, capital=10000, log_trades=True):
+    # Calculate EMAs
     df['EMA_SHORT'] = df['close'].ewm(span=short_window, adjust=False).mean()
     df['EMA_LONG'] = df['close'].ewm(span=long_window, adjust=False).mean()
 
+    # Optional indicators
     if USE_RSI:
         df['RSI'] = compute_rsi(df['close'])
     if USE_MACD:
@@ -31,6 +33,7 @@ def ema_crossover_strategy(df, symbol="BTC/USDT", short_window=EMA_SHORT, long_w
     if USE_VWAP:
         df['VWAP'] = compute_vwap(df)
 
+    # Initialize signal and position tracking
     df['signal'] = 0
     df['trade_id'] = 0
     position = 0
@@ -43,21 +46,24 @@ def ema_crossover_strategy(df, symbol="BTC/USDT", short_window=EMA_SHORT, long_w
     risk_amount = capital * risk_pct
 
     for i in range(1, len(df)):
-        ema_buy = df['EMA_SHORT'].iloc[i] > df['EMA_LONG'].iloc[i]
-        ema_sell = df['EMA_SHORT'].iloc[i] < df['EMA_LONG'].iloc[i]
-
         price = df['close'].iloc[i]
         time = df.index[i]
 
+        # Detect crossovers (only trigger on crossover change, not every bar)
+        bullish_cross = (df['EMA_SHORT'].iloc[i] > df['EMA_LONG'].iloc[i]) and (df['EMA_SHORT'].iloc[i - 1] <= df['EMA_LONG'].iloc[i - 1])
+        bearish_cross = (df['EMA_SHORT'].iloc[i] < df['EMA_LONG'].iloc[i]) and (df['EMA_SHORT'].iloc[i - 1] >= df['EMA_LONG'].iloc[i - 1])
+
         if position == 0:
-            if ema_buy or ema_sell:
-                position = 1 if ema_buy else -1
+            # Entry conditions on fresh cross
+            if bullish_cross or bearish_cross:
+                position = 1 if bullish_cross else -1
                 entry_price = price
                 stop_loss_price = entry_price * (1 - STOPLOSS_THRESHOLD) if position == 1 else entry_price * (1 + STOPLOSS_THRESHOLD)
                 take_profit_price = entry_price * (1 + TAKEPROFIT_THRESHOLD) if position == 1 else entry_price * (1 - TAKEPROFIT_THRESHOLD)
                 stop_distance = abs(entry_price - stop_loss_price)
                 lot_size = risk_amount / stop_distance if stop_distance != 0 else 0
                 reward_amount = lot_size * abs(take_profit_price - entry_price)
+
                 df.at[time, 'signal'] = position
                 df.at[time, 'trade_id'] = trade_id
                 open_trade_index = time
@@ -65,7 +71,9 @@ def ema_crossover_strategy(df, symbol="BTC/USDT", short_window=EMA_SHORT, long_w
         elif position == 1:
             stop_hit = price < stop_loss_price
             tp_hit = price > take_profit_price
-            if stop_hit or tp_hit or ema_sell:
+
+            # Exit long if SL, TP, or reverse crossover
+            if stop_hit or tp_hit or bearish_cross:
                 pnl = (price - entry_price) * lot_size
                 pips = (price - entry_price) * 100
                 trades.append([
@@ -91,7 +99,9 @@ def ema_crossover_strategy(df, symbol="BTC/USDT", short_window=EMA_SHORT, long_w
         elif position == -1:
             stop_hit = price > stop_loss_price
             tp_hit = price < take_profit_price
-            if stop_hit or tp_hit or ema_buy:
+
+            # Exit short if SL, TP, or reverse crossover
+            if stop_hit or tp_hit or bullish_cross:
                 pnl = (entry_price - price) * lot_size
                 pips = (entry_price - price) * 100
                 trades.append([
@@ -114,13 +124,18 @@ def ema_crossover_strategy(df, symbol="BTC/USDT", short_window=EMA_SHORT, long_w
                 position = 0
                 trade_id += 1
 
+    # Fill position column based on past signal
     df['position'] = df['signal'].replace(to_replace=0, method='ffill').fillna(0)
+
+    # Log trades to CSV
     trades_df = pd.DataFrame(trades, columns=[
         'Date', 'Pair', 'Buy/Sell', 'Entry Price', 'Stop Loss', 'Take Profit',
         'Exit Price', 'Pips Gained/Lost', 'Risk (USD)', 'Reward (USD)', 'R:R Ratio', 'Lot Size', 'Result'
     ])
     if log_trades:
+        os.makedirs("logs", exist_ok=True)
         trades_df.to_csv('logs/trades.csv', index=False)
+
     return df
 
 def compute_rsi(series, period=14):

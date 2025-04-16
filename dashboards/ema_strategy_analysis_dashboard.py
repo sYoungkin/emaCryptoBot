@@ -1,12 +1,15 @@
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
-import os
 from strategy import ema_crossover
 from backtest.backtest_engine import backtest
 from data.fetch_data import save_to_csv
 from datetime import datetime
+
 
 st.set_page_config(layout="wide")
 
