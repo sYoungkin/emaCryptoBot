@@ -1,5 +1,5 @@
 from apscheduler.schedulers.blocking import BlockingScheduler
-from archive.binance_bot import run_live_bot
+from live.bybit_bot_test import test_bot
 
 scheduler = BlockingScheduler()
 

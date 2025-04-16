@@ -10,7 +10,7 @@ from strategy.ema_crossover import ema_crossover_strategy
 from data.fetch_data import fetch_bybit_data  # ✅ Updated
 import argparse
 
-load_dotenv()
+load_dotenv(override=True)
 
 api_key = os.getenv('BYBIT_API_KEY')
 api_secret = os.getenv('BYBIT_API_SECRET')
