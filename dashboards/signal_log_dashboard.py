@@ -6,6 +6,9 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 from strategy.ema_crossover import ema_crossover_strategy
+import time
+
+
 
 st.set_page_config(layout="wide")
 st.title("\U0001F4CB Bot Signal Log Viewer")
@@ -87,8 +90,18 @@ try:
         fig_macd.update_layout(height=250)
         st.plotly_chart(fig_macd, use_container_width=True)
 
+    st.subheader("📘 Strategy Suggestions")
+    latest_signal = df['signal'].iloc[-1]
+    if latest_signal == 1:
+        st.success("📈 Current signal is BUY → Consider long-biased strategy like EMA crossover.")
+    elif latest_signal == -1:
+        st.error("📉 Current signal is SELL → Consider short-selling or momentum reversal strategy.")
+    else:
+        st.warning("🔍 HOLD signal → Wait for breakout confirmation or sideways strategy.")
+
     st.subheader("\U0001F4DD Signal Log")
     st.dataframe(log_df)
+
 
 except FileNotFoundError:
     st.error("Log file 'test_bot_log.csv' not found.")

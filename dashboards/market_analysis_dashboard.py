@@ -9,6 +9,9 @@ import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 from data.fetch_data import fetch_bybit_data
+import time
+
+
 
 st.set_page_config(layout="wide")
 st.title("🧠 Market Regime Analyzer")
