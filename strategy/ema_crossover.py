@@ -164,7 +164,6 @@ if __name__ == "__main__":
     df = pd.read_csv("data/BTCUSDT_1h.csv", index_col="timestamp", parse_dates=True)
     
     # Run strategy and output trades.csv
-    os.makedirs("logs", exist_ok=True)
     ema_crossover_strategy(df, capital=10000)
     
     print("✅ Strategy executed and trades.csv written to logs/")

@@ -34,6 +34,25 @@ try:
 
     df = ema_crossover_strategy(df, symbol="BTC/USDT", short_window=ema_short, long_window=ema_long, capital=10000, log_trades=False)
 
+    # \U0001F4CA Performance Summary Metrics
+    st.subheader("\U0001F4CA Performance Summary")
+    total_signals = log_df[log_df['signal'].isin(['🟢 BUY', '🔴 SELL'])].shape[0]
+    buy_signals = log_df[log_df['signal'] == '🟢 BUY'].shape[0]
+    sell_signals = log_df[log_df['signal'] == '🔴 SELL'].shape[0]
+    avg_position_value = log_df['position_value'].mean()
+    avg_stop = (log_df['price'] - log_df['stop_loss']).abs().mean()
+    avg_tp = (log_df['take_profit'] - log_df['price']).abs().mean()
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Signals", total_signals)
+    col2.metric("Buys / Sells", f"{buy_signals} / {sell_signals}")
+    col3.metric("Avg Position Size ($)", f"${avg_position_value:.2f}")
+
+    col4, col5 = st.columns(2)
+    col4.metric("Avg Stop Distance ($)", f"${avg_stop:.2f}")
+    col5.metric("Avg Take Profit Distance ($)", f"${avg_tp:.2f}")
+
+    # \U0001F4C8 Chart with Signals
     st.subheader("\U0001F4C8 Price Chart with Signals")
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=df.index, y=df['close'], name="Close", line=dict(color="gray")))
