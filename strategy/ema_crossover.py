@@ -1,10 +1,10 @@
-# File: strategy/ema_crossover.py (Simplified EMA-only strategy with enhanced trade logs)
+# File: strategy/ema_crossover.py (Cleaned and parameterized)
 import pandas as pd
 import numpy as np
 import warnings
 warnings.filterwarnings("ignore")
 
-# Configurable EMA windows
+# Defaults (can be overridden)
 EMA_SHORT = 5
 EMA_LONG = 9
 
@@ -17,8 +17,7 @@ USE_TAKEPROFIT = True
 STOPLOSS_THRESHOLD = 0.02
 TAKEPROFIT_THRESHOLD = 0.04
 
-
-def ema_crossover_strategy(df, short_window=EMA_SHORT, long_window=EMA_LONG, capital=10000):
+def ema_crossover_strategy(df, symbol="BTC/USDT", short_window=EMA_SHORT, long_window=EMA_LONG, capital=10000):
     df['EMA_SHORT'] = df['close'].ewm(span=short_window, adjust=False).mean()
     df['EMA_LONG'] = df['close'].ewm(span=long_window, adjust=False).mean()
 
@@ -37,7 +36,6 @@ def ema_crossover_strategy(df, short_window=EMA_SHORT, long_window=EMA_LONG, cap
     open_trade_index = None
     trades = []
 
-    symbol = "BTC/USDT"  # can be parameterized later
     risk_pct = 0.02
     risk_amount = capital * risk_pct
 
@@ -57,10 +55,10 @@ def ema_crossover_strategy(df, short_window=EMA_SHORT, long_window=EMA_LONG, cap
                 stop_distance = abs(entry_price - stop_loss_price)
                 lot_size = risk_amount / stop_distance if stop_distance != 0 else 0
                 reward_amount = lot_size * abs(take_profit_price - entry_price)
-                df.at[df.index[i], 'signal'] = position
-                df.at[df.index[i], 'trade_id'] = trade_id
+                df.at[time, 'signal'] = position
+                df.at[time, 'trade_id'] = trade_id
                 open_trade_index = time
-        
+
         elif position == 1:
             stop_hit = price < stop_loss_price
             tp_hit = price > take_profit_price
@@ -82,8 +80,8 @@ def ema_crossover_strategy(df, short_window=EMA_SHORT, long_window=EMA_LONG, cap
                     round(lot_size, 6),
                     'Win' if pnl > 0 else 'Loss'
                 ])
-                df.at[df.index[i], 'signal'] = -1
-                df.at[df.index[i], 'trade_id'] = trade_id
+                df.at[time, 'signal'] = -1
+                df.at[time, 'trade_id'] = trade_id
                 position = 0
                 trade_id += 1
 
@@ -108,19 +106,18 @@ def ema_crossover_strategy(df, short_window=EMA_SHORT, long_window=EMA_LONG, cap
                     round(lot_size, 6),
                     'Win' if pnl > 0 else 'Loss'
                 ])
-                df.at[df.index[i], 'signal'] = 1
-                df.at[df.index[i], 'trade_id'] = trade_id
+                df.at[time, 'signal'] = 1
+                df.at[time, 'trade_id'] = trade_id
                 position = 0
                 trade_id += 1
 
     df['position'] = df['signal'].replace(to_replace=0, method='ffill').fillna(0)
     trades_df = pd.DataFrame(trades, columns=[
-        'Date', 'Pair', 'Buy/Sell', 'Entry Price', 'Stop Loss', 'Take Profit', 'Exit Price', 'Pips Gained/Lost',
-        'Risk (USD)', 'Reward (USD)', 'R:R Ratio', 'Lot Size', 'Result'
+        'Date', 'Pair', 'Buy/Sell', 'Entry Price', 'Stop Loss', 'Take Profit',
+        'Exit Price', 'Pips Gained/Lost', 'Risk (USD)', 'Reward (USD)', 'R:R Ratio', 'Lot Size', 'Result'
     ])
     trades_df.to_csv('logs/trades.csv', index=False)
     return df
-
 
 def compute_rsi(series, period=14):
     delta = series.diff()
@@ -130,7 +127,6 @@ def compute_rsi(series, period=14):
     rsi = 100 - (100 / (1 + rs))
     return rsi
 
-
 def compute_macd(series, fast=12, slow=26, signal=9):
     ema_fast = series.ewm(span=fast, adjust=False).mean()
     ema_slow = series.ewm(span=slow, adjust=False).mean()
@@ -138,11 +134,18 @@ def compute_macd(series, fast=12, slow=26, signal=9):
     macd_signal = macd.ewm(span=signal, adjust=False).mean()
     return macd, macd_signal
 
-
 def compute_vwap(df):
     return (df['close'] * df['volume']).cumsum() / df['volume'].cumsum()
 
 
-def detect_fvg(df):
-    fvg = (df['low'].shift(-2) > df['high'])
-    return fvg.astype(int)
+if __name__ == "__main__":
+    import os
+
+    # Temporary test — load a dataset
+    df = pd.read_csv("data/BTCUSDT_1h.csv", index_col="timestamp", parse_dates=True)
+    
+    # Run strategy and output trades.csv
+    os.makedirs("logs", exist_ok=True)
+    ema_crossover_strategy(df, capital=10000)
+    
+    print("✅ Strategy executed and trades.csv written to logs/")

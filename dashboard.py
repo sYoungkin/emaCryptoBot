@@ -5,7 +5,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 import os
 from strategy import ema_crossover
-from backtest.backtest import backtest
+from backtest.backtest_engine import backtest
 from data.fetch_data import save_to_csv
 from datetime import datetime
 
