@@ -2,6 +2,7 @@
 
 # File: live/bybit_bot_stateful.py
 import os
+import json
 import pandas as pd
 from datetime import datetime
 from dotenv import load_dotenv
@@ -16,6 +17,7 @@ RISK_PCT = 0.02
 
 # Create subdirectory for daily logs
 LOG_DIR = "logs/test_bot_log_stateful"
+STATE_FILE = "logs/test_bot_log_stateful/bot_state.json"
 os.makedirs(LOG_DIR, exist_ok=True)
 
 # Daily log file path
@@ -44,10 +46,21 @@ def log_to_csv(data: dict):
     else:
         df.to_csv(LOG_PATH, mode='w', header=True, index=False)
 
+def load_state():
+    if os.path.exists(STATE_FILE):
+        with open(STATE_FILE, 'r') as f:
+            return json.load(f)
+    return {"position": 0, "entry_price": 0.0, "timestamp": None}
+
+def save_state(state):
+    with open(STATE_FILE, 'w') as f:
+        json.dump(state, f)
+
 def test_bot(symbol='BTC/USDT', timeframe='1m', capital=100, stop_loss_pct=0.02):
     print(f"\n🔄 Running test bot for {symbol} on timeframe {timeframe}...")
 
     df = fetch_bybit_data(symbol, timeframe, limit=100)
+    state = load_state()
     df = ema_crossover_strategy(df, symbol=symbol, capital=capital)
 
     latest_signal = df['signal'].iloc[-1]
@@ -62,41 +75,54 @@ def test_bot(symbol='BTC/USDT', timeframe='1m', capital=100, stop_loss_pct=0.02)
     sl_price = tp_price = sl_usd = tp_usd = None
     direction = "⚪ HOLD"
 
-    if latest_signal == 1:  # BUY
-        sl_price = round(price - stop_amount, 2)
-        tp_price = round(price + (stop_amount * 2), 2)
-        sl_usd = round((price - sl_price) * position_size, 2)
-        tp_usd = round((tp_price - price) * position_size, 2)
-        direction = "🟢 BUY"
+    if state['position'] == 0 and latest_signal != 0:
+        state['position'] = latest_signal
+        state['entry_price'] = price
+        state['timestamp'] = str(timestamp)
 
-    elif latest_signal == -1:  # SELL
-        sl_price = round(price + stop_amount, 2)
-        tp_price = round(price - (stop_amount * 2), 2)
-        sl_usd = round((sl_price - price) * position_size, 2)
-        tp_usd = round((price - tp_price) * position_size, 2)
-        direction = "🔴 SELL"
+        if latest_signal == 1:
+            sl_price = round(price - stop_amount, 2)
+            tp_price = round(price + (stop_amount * 2), 2)
+            direction = "🟢 BUY"
+        elif latest_signal == -1:
+            sl_price = round(price + stop_amount, 2)
+            tp_price = round(price - (stop_amount * 2), 2)
+            direction = "🔴 SELL"
 
-    # Print output
-    print(f"\nTime: {timestamp}")
-    print(f"Price: ${price} | Capital: ${capital}")
-    print(f"Position: {position_size} {base} (~${position_value})")
-    print(f"Signal: {direction}")
-    if sl_price and tp_price:
-        print(f"SL: ${sl_price} (-${sl_usd}) | TP: ${tp_price} (+${tp_usd})")
+        sl_usd = abs(price - sl_price) * position_size
+        tp_usd = abs(tp_price - price) * position_size
 
-    if latest_signal != 0:
-        msg = (
+        message = (
             f"{direction} Signal for {symbol}\n"
             f"Price: ${price}\n"
-            f"SL: ${sl_price} (-${sl_usd}) | TP: ${tp_price} (+${tp_usd})\n"
+            f"SL: {sl_price} (-${round(sl_usd, 2)}) | TP: {tp_price} (+${round(tp_usd, 2)})\n"
             f"Position: {position_size} {base} (~${position_value})\n"
-            f"Risking ${round(stop_amount, 2)} | Potential: ${tp_usd}"
+            f"Risking ${round(stop_amount, 2)} | Potential: ${round(tp_usd, 2)}"
         )
-        indented = msg.replace("\n", "\n  → ")
-        print(f"\n💡 Action Plan:\n  → {indented}")
-        #send_telegram_alert(msg)
+        print(f"\n💡 Action Plan:\n  → {message.replace(chr(10), chr(10)+'  → ')}")
+        #send_telegram_alert(message)
+
+     
+    elif state['position'] != 0:
+        entry_price = state['entry_price']
+        if state['position'] == 1:
+            sl_price = entry_price - stop_amount
+            tp_price = entry_price + stop_amount * 2
+            if price <= sl_price or price >= tp_price:
+                print(f"✅ Closing LONG at ${price}")
+                state = {"position": 0, "entry_price": 0.0, "timestamp": None}
+        elif state['position'] == -1:
+            sl_price = entry_price + stop_amount
+            tp_price = entry_price - stop_amount * 2
+            if price >= sl_price or price <= tp_price:
+                print(f"✅ Closing SHORT at ${price}")
+                state = {"position": 0, "entry_price": 0.0, "timestamp": None}
     else:
         print("💤 HOLD — No action taken.")
+
+    save_state(state)
+
+    
 
     # Log every run
     log_data = {
