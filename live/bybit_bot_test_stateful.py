@@ -94,7 +94,7 @@ def test_bot(symbol='BTC/USDT', timeframe='1m', capital=100, stop_loss_pct=0.02)
         )
         indented = msg.replace("\n", "\n  → ")
         print(f"\n💡 Action Plan:\n  → {indented}")
-        send_telegram_alert(msg)
+        #send_telegram_alert(msg)
     else:
         print("💤 HOLD — No action taken.")
 
