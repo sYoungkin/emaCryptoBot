@@ -101,7 +101,7 @@ def test_bot(symbol='BTC/USDT', timeframe='1m', capital=100, stop_loss_pct=0.02)
             f"Risking ${round(stop_amount, 2)} | Potential: ${round(tp_usd, 2)}"
         )
         print(f"\n💡 Action Plan:\n  → {message.replace(chr(10), chr(10)+'  → ')}")
-        send_telegram_alert(message)
+        #send_telegram_alert(message)
     else:
         print("\n💤 No action taken. Strategy suggests HOLD.")
 

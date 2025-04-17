@@ -1,6 +1,7 @@
 #!/usr/bin/env PYTHONWARNINGS="ignore::urllib3.exceptions.NotOpenSSLWarning" python
 
-# File: live/bybit_bot_stateful.py
+# File: live/bybit_bot_test_stateful.py
+
 import os
 import json
 import pandas as pd
@@ -14,17 +15,13 @@ import requests
 load_dotenv(override=True)
 
 RISK_PCT = 0.02
-
-# Create subdirectory for daily logs
 LOG_DIR = "logs/test_bot_log_stateful"
-STATE_FILE = "logs/test_bot_log_stateful/bot_state.json"
-os.makedirs(LOG_DIR, exist_ok=True)
+STATE_FILE = os.path.join(LOG_DIR, "bot_state.json")
 
-# Daily log file path
+os.makedirs(LOG_DIR, exist_ok=True)
 today_str = datetime.now().strftime("%Y-%m-%d")
 LOG_PATH = os.path.join(LOG_DIR, f"{today_str}.csv")
 
-# Telegram Setup
 chat_id = os.getenv("TELEGRAM_CHAT_ID")
 bot_token = os.getenv("TELEGRAM_TOKEN")
 
@@ -60,9 +57,16 @@ def test_bot(symbol='BTC/USDT', timeframe='1m', capital=100, stop_loss_pct=0.02)
     print(f"\n🔄 Running test bot for {symbol} on timeframe {timeframe}...")
 
     df = fetch_bybit_data(symbol, timeframe, limit=100)
-    state = load_state()
-    df = ema_crossover_strategy(df, symbol=symbol, capital=capital)
+    if df is None or df.empty:
+        print("⚠️ No data fetched.")
+        return
 
+    df = ema_crossover_strategy(df, symbol=symbol, capital=capital)
+    if 'signal' not in df.columns:
+        print("⚠️ Strategy did not return 'signal' column.")
+        return
+
+    state = load_state()
     latest_signal = df['signal'].iloc[-1]
     price = df['close'].iloc[-1]
     timestamp = df.index[-1]
@@ -71,14 +75,21 @@ def test_bot(symbol='BTC/USDT', timeframe='1m', capital=100, stop_loss_pct=0.02)
     position_size = round(capital / price, 6)
     position_value = round(position_size * price, 2)
 
-    # Default placeholders
+    # Initialize variables
     sl_price = tp_price = sl_usd = tp_usd = None
     direction = "⚪ HOLD"
 
+    print("before if "+ str(state))
+
+    #latest_signal = 1
+
     if state['position'] == 0 and latest_signal != 0:
-        state['position'] = latest_signal
-        state['entry_price'] = price
+        state['position'] = int(latest_signal)
+        state['entry_price'] = float(price)
         state['timestamp'] = str(timestamp)
+        print("latest !=0 and pos=0 "+str(state))
+        
+
 
         if latest_signal == 1:
             sl_price = round(price - stop_amount, 2)
@@ -100,11 +111,10 @@ def test_bot(symbol='BTC/USDT', timeframe='1m', capital=100, stop_loss_pct=0.02)
             f"Risking ${round(stop_amount, 2)} | Potential: ${round(tp_usd, 2)}"
         )
         print(f"\n💡 Action Plan:\n  → {message.replace(chr(10), chr(10)+'  → ')}")
-        #send_telegram_alert(message)
+        send_telegram_alert(message)  # Uncomment if ready
 
-     
     elif state['position'] != 0:
-        entry_price = state['entry_price']
+        entry_price = float(state['entry_price'])
         if state['position'] == 1:
             sl_price = entry_price - stop_amount
             tp_price = entry_price + stop_amount * 2
@@ -120,9 +130,8 @@ def test_bot(symbol='BTC/USDT', timeframe='1m', capital=100, stop_loss_pct=0.02)
     else:
         print("💤 HOLD — No action taken.")
 
+    print("before save "+str(state))
     save_state(state)
-
-    
 
     # Log every run
     log_data = {
