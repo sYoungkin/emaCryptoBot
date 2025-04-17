@@ -1,5 +1,6 @@
+#!/usr/bin/env PYTHONWARNINGS="ignore::urllib3.exceptions.NotOpenSSLWarning" python
+
 import os
-import ccxt
 import pandas as pd
 from datetime import datetime
 from dotenv import load_dotenv
@@ -7,6 +8,10 @@ from strategy.ema_crossover import ema_crossover_strategy
 from data.fetch_data import fetch_bybit_data
 import argparse
 import requests
+
+
+
+
 
 load_dotenv(override=True)
 
@@ -44,6 +49,7 @@ def test_bot(symbol='BTC/USDT', timeframe='1m', capital=100, stop_loss_pct=0.02)
     print(f"\n🔄 Running test bot for {symbol} on timeframe {timeframe}...")
 
     df = fetch_bybit_data(symbol, timeframe, limit=100)
+    
     df = ema_crossover_strategy(df, symbol=symbol, capital=capital)
 
     latest_signal = df['signal'].iloc[-1]

@@ -9,8 +9,6 @@ import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 from data.fetch_data import fetch_bybit_data
-import time
-
 
 
 st.set_page_config(layout="wide")
@@ -152,7 +150,7 @@ if start_idx is not None:
         layer="below", line_width=0
     )
 
-fig.update_layout(height=400, xaxis_title="Time", yaxis_title="Price", hovermode='x unified')
+fig.update_layout(xaxis_title="Time", yaxis_title="Price", hovermode='x unified')
 st.plotly_chart(fig, use_container_width=True)
 st.caption("Regimes shaded by type: green = trending, orange = choppy, red = volatile.")
 
@@ -176,7 +174,7 @@ st.subheader("🔧 ATR (Volatility)")
 st.caption("ATR (Average True Range) shows the average volatility range of recent candles. Higher = more volatile.")
 fig_atr = go.Figure()
 fig_atr.add_trace(go.Scatter(x=df.index, y=df['ATR'], name='ATR', line=dict(color='purple')))
-fig_atr.update_layout(height=250, xaxis_title="Time", yaxis_title="ATR")
+fig_atr.update_layout(height=400, xaxis_title="Time", yaxis_title="ATR")
 st.plotly_chart(fig_atr, use_container_width=True)
 
 st.subheader("📏 ADX (Trend Strength)")
@@ -184,21 +182,21 @@ st.caption("ADX measures trend strength. Above 25 = strong trend, below = weak o
 fig_adx = go.Figure()
 fig_adx.add_trace(go.Scatter(x=df.index, y=df['ADX'], name='ADX', line=dict(color='blue')))
 fig_adx.add_hline(y=25, line_dash='dash', line_color='gray')
-fig_adx.update_layout(height=250)
+fig_adx.update_layout(height=400)
 st.plotly_chart(fig_adx, use_container_width=True)
 
 st.subheader("📉 EMA Spread")
 st.caption("EMA Spread shows direction and separation of short/long trends. Used for crossover logic.")
 fig_spread = go.Figure()
 fig_spread.add_trace(go.Scatter(x=df.index, y=df['EMA_Spread'], name='EMA Spread', line=dict(color='orange')))
-fig_spread.update_layout(height=250)
+fig_spread.update_layout(height=400)
 st.plotly_chart(fig_spread, use_container_width=True)
 
 st.subheader("📊 Bollinger Band Width")
 st.caption("Bollinger Band Width expands during high volatility. Constriction can precede breakout moves.")
 fig_bb = go.Figure()
 fig_bb.add_trace(go.Scatter(x=df.index, y=df['BB_Width'], name='BB Width', line=dict(color='green')))
-fig_bb.update_layout(height=250)
+fig_bb.update_layout(height=400)
 st.plotly_chart(fig_bb, use_container_width=True)
 
 st.subheader("📈 RSI")
@@ -207,5 +205,5 @@ fig_rsi = go.Figure()
 fig_rsi.add_trace(go.Scatter(x=df.index, y=df['RSI'], name='RSI', line=dict(color='purple')))
 fig_rsi.add_hline(y=70, line_dash='dash', line_color='red')
 fig_rsi.add_hline(y=30, line_dash='dash', line_color='green')
-fig_rsi.update_layout(height=250)
+fig_rsi.update_layout(height=400)
 st.plotly_chart(fig_rsi, use_container_width=True)
