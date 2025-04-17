@@ -1,5 +1,6 @@
 #!/usr/bin/env PYTHONWARNINGS="ignore::urllib3.exceptions.NotOpenSSLWarning" python
 
+# File: live/bybit_bot_stateful.py
 import os
 import pandas as pd
 from datetime import datetime
@@ -11,15 +12,14 @@ import requests
 
 load_dotenv(override=True)
 
-# Constants
 RISK_PCT = 0.02
-LOG_PATH = "logs/test_bot_log.csv"
+LOG_PATH = "logs/test_bot_log_stateful.csv"
+STATE_FILE = "logs/bot_state.json"
 os.makedirs("logs", exist_ok=True)
 
 # Telegram Setup
 chat_id = os.getenv("TELEGRAM_CHAT_ID")
 bot_token = os.getenv("TELEGRAM_TOKEN")
-
 
 def send_telegram_alert(message):
     if not chat_id or not bot_token:
@@ -32,7 +32,6 @@ def send_telegram_alert(message):
     except Exception as e:
         print("❌ Telegram error:", str(e))
 
-
 def log_to_csv(data: dict):
     df = pd.DataFrame([data])
     if os.path.exists(LOG_PATH):
@@ -40,66 +39,61 @@ def log_to_csv(data: dict):
     else:
         df.to_csv(LOG_PATH, mode='w', header=True, index=False)
 
-
 def test_bot(symbol='BTC/USDT', timeframe='1m', capital=100, stop_loss_pct=0.02):
     print(f"\n🔄 Running test bot for {symbol} on timeframe {timeframe}...")
 
-    df = fetch_bybit_data(symbol, timeframe, limit=500)
-    
+    df = fetch_bybit_data(symbol, timeframe, limit=100)
     df = ema_crossover_strategy(df, symbol=symbol, capital=capital)
 
     latest_signal = df['signal'].iloc[-1]
     price = df['close'].iloc[-1]
     timestamp = df.index[-1]
-
     base = symbol.split('/')[0]
     stop_amount = capital * stop_loss_pct
-
     position_size = round(capital / price, 6)
     position_value = round(position_size * price, 2)
 
-
+    # Default placeholders
+    sl_price = tp_price = sl_usd = tp_usd = None
+    direction = "⚪ HOLD"
 
     if latest_signal == 1:  # BUY
-        sl_price = round(price - stop_amount , 2)
-        tp_price = round(price + (stop_amount * 2) , 2)
-        sl_usd = round(price - sl_price, 2) * position_size
-        tp_usd = round(tp_price - price, 2) * position_size
+        sl_price = round(price - stop_amount, 2)
+        tp_price = round(price + (stop_amount * 2), 2)
+        sl_usd = round((price - sl_price) * position_size, 2)
+        tp_usd = round((tp_price - price) * position_size, 2)
         direction = "🟢 BUY"
 
     elif latest_signal == -1:  # SELL
-        sl_price = round(price + stop_amount , 2)
+        sl_price = round(price + stop_amount, 2)
         tp_price = round(price - (stop_amount * 2), 2)
-        sl_usd = round(sl_price - price, 2) * position_size
-        tp_usd = round(price - tp_price, 2) * position_size
+        sl_usd = round((sl_price - price) * position_size, 2)
+        tp_usd = round((price - tp_price) * position_size, 2)
         direction = "🔴 SELL"
-    else:
-        sl_price = tp_price = sl_usd = tp_usd = None
-        direction = "⚪ HOLD"
 
-    print(f"\n🕒 Timestamp: {timestamp}")
-    print(f"💰 Capital: ${capital}")
-    print(f"📉 Current Price: ${price}")
-    print(f"📦 Position Size: {position_size} {base} (~${position_value})")
+    # Print output
+    print(f"\nTime: {timestamp}")
+    print(f"Price: ${price} | Capital: ${capital}")
+    print(f"Position: {position_size} {base} (~${position_value})")
+    print(f"Signal: {direction}")
     if sl_price and tp_price:
-        print(f"⚠️ Stop Loss: {sl_price} | 🎯 Take Profit: {tp_price}")
-    print(f"📊 Signal: {direction}")
+        print(f"SL: ${sl_price} (-${sl_usd}) | TP: ${tp_price} (+${tp_usd})")
 
-    # Action plan and alert (only on signal)
     if latest_signal != 0:
-        message = (
+        msg = (
             f"{direction} Signal for {symbol}\n"
             f"Price: ${price}\n"
-            f"SL: {sl_price} (-${round(sl_usd, 2)}) | TP: {tp_price} (+${round(tp_usd, 2)})\n"
+            f"SL: ${sl_price} (-${sl_usd}) | TP: ${tp_price} (+${tp_usd})\n"
             f"Position: {position_size} {base} (~${position_value})\n"
-            f"Risking ${round(stop_amount, 2)} | Potential: ${round(tp_usd, 2)}"
+            f"Risking ${round(stop_amount, 2)} | Potential: ${tp_usd}"
         )
-        print(f"\n💡 Action Plan:\n  → {message.replace(chr(10), chr(10)+'  → ')}")
-        send_telegram_alert(message)
+        indented = msg.replace("\n", "\n  → ")
+        print(f"\n💡 Action Plan:\n  → {indented}")
+        send_telegram_alert(msg)
     else:
-        print("\n💤 No action taken. Strategy suggests HOLD.")
+        print("💤 HOLD — No action taken.")
 
-    # Logging every run
+    # Log every run
     log_data = {
         "timestamp": timestamp,
         "symbol": symbol,
@@ -111,7 +105,6 @@ def test_bot(symbol='BTC/USDT', timeframe='1m', capital=100, stop_loss_pct=0.02)
         "take_profit": tp_price
     }
     log_to_csv(log_data)
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run the test EMA trading bot on Bybit.")
