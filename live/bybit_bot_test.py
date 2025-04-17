@@ -13,8 +13,14 @@ load_dotenv(override=True)
 
 # Constants
 RISK_PCT = 0.02
-LOG_PATH = "logs/test_bot_log.csv"
-os.makedirs("logs", exist_ok=True)
+
+# Create subdirectory for daily logs
+LOG_DIR = "logs/test_bot_log"
+os.makedirs(LOG_DIR, exist_ok=True)
+
+# Daily log file path
+today_str = datetime.now().strftime("%Y-%m-%d")
+LOG_PATH = os.path.join(LOG_DIR, f"{today_str}.csv")
 
 # Telegram Setup
 chat_id = os.getenv("TELEGRAM_CHAT_ID")
