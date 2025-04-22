@@ -1,13 +1,15 @@
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import plotly.express as px
-import os
 from strategy import ema_crossover
-from backtest.backtest import backtest
+from backtest.backtest_engine import backtest
 from data.fetch_data import save_to_csv
 from datetime import datetime
+
 
 st.set_page_config(layout="wide")
 
@@ -61,10 +63,7 @@ if run_btn or compare_btn:
                 ema_crossover.TAKEPROFIT_THRESHOLD = take_profit
 
                 df = pd.read_csv(filepath, index_col="timestamp", parse_dates=True)
-                df = backtest(df, short_window=short, long_window=long, initial_balance=initial_balance, leverage=leverage)
-                total_return = df['equity_curve'].iloc[-1] - initial_balance
-                win_rate = (df['strategy_returns'] > 0).mean()
-                max_dd = (df['equity_curve'] / df['equity_curve'].cummax() - 1).min()
+                df, total_return, win_rate, max_dd = backtest(df, symbol=pair.replace("USDT", "/USDT"), short_window=short, long_window=long, initial_balance=initial_balance, leverage=leverage)
                 trade_count = df['position'].diff().abs().sum() / 2
                 avg_profit = total_return / trade_count if trade_count else 0
 
@@ -96,29 +95,13 @@ if run_btn or compare_btn:
 
             df = pd.read_csv(filepath, index_col="timestamp", parse_dates=True)
             df['VWAP'] = (df['close'] * df['volume']).cumsum() / df['volume'].cumsum()
-            df = backtest(df, short_window=ema_short, long_window=ema_long, initial_balance=initial_balance, leverage=leverage)
+            df, total_return, win_rate, max_dd = backtest(df, symbol=pair.replace("USDT", "/USDT"), short_window=ema_short, long_window=ema_long, initial_balance=initial_balance, leverage=leverage)
             trades_df = pd.read_csv("logs/trades.csv")
-
-            total_return = df['equity_curve'].iloc[-1] - initial_balance
-            win_rate = (df['strategy_returns'] > 0).mean()
-            max_dd = (df['equity_curve'] / df['equity_curve'].cummax() - 1).min()
 
             col1, col2, col3 = st.columns(3)
             col1.metric("Total Return", f"${total_return:.2f}")
             col2.metric("Win Rate", f"{win_rate:.2%}")
             col3.metric("Max Drawdown", f"{max_dd:.2%}")
-
-            st.subheader("📉 Equity Curve")
-            st.caption("Shows the account balance over time as trades are executed with the given leverage.")
-            fig_equity = go.Figure()
-            fig_equity.add_trace(go.Scatter(
-                x=df.index,
-                y=df['equity_curve'],
-                name='Equity',
-                line=dict(color='black')
-            ))
-            fig_equity.update_layout(height=300, xaxis_title="Time", yaxis_title="Equity ($)", hovermode='x unified')
-            st.plotly_chart(fig_equity, use_container_width=True)
 
             st.subheader("\U0001F4C8 Price Chart")
             st.caption("Shows price with EMA overlays and VWAP. Entry (green ▲) and exit (red ▼) markers indicate trades.")

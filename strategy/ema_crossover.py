@@ -1,10 +1,13 @@
-# File: strategy/ema_crossover.py (Simplified EMA-only strategy with full features)
+# File: strategy/ema_crossover.py (Cleaned and parameterized)
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import pandas as pd
 import numpy as np
 import warnings
 warnings.filterwarnings("ignore")
 
-# Configurable EMA windows
+# Defaults (can be overridden)
 EMA_SHORT = 5
 EMA_LONG = 9
 
@@ -17,11 +20,12 @@ USE_TAKEPROFIT = True
 STOPLOSS_THRESHOLD = 0.02
 TAKEPROFIT_THRESHOLD = 0.04
 
-
-def ema_crossover_strategy(df, short_window=EMA_SHORT, long_window=EMA_LONG):
+def ema_crossover_strategy(df, symbol="BTC/USDT", short_window=EMA_SHORT, long_window=EMA_LONG, capital=10000, log_trades=True):
+    # Calculate EMAs
     df['EMA_SHORT'] = df['close'].ewm(span=short_window, adjust=False).mean()
     df['EMA_LONG'] = df['close'].ewm(span=long_window, adjust=False).mean()
 
+    # Optional indicators
     if USE_RSI:
         df['RSI'] = compute_rsi(df['close'])
     if USE_MACD:
@@ -29,6 +33,7 @@ def ema_crossover_strategy(df, short_window=EMA_SHORT, long_window=EMA_LONG):
     if USE_VWAP:
         df['VWAP'] = compute_vwap(df)
 
+    # Initialize signal and position tracking
     df['signal'] = 0
     df['trade_id'] = 0
     position = 0
@@ -37,58 +42,101 @@ def ema_crossover_strategy(df, short_window=EMA_SHORT, long_window=EMA_LONG):
     open_trade_index = None
     trades = []
 
+    risk_pct = 0.02
+    risk_amount = capital * risk_pct
+
     for i in range(1, len(df)):
-        ema_buy = df['EMA_SHORT'].iloc[i] > df['EMA_LONG'].iloc[i]
-        ema_sell = df['EMA_SHORT'].iloc[i] < df['EMA_LONG'].iloc[i]
-
         price = df['close'].iloc[i]
+        time = df.index[i]
 
-        # Entry
+        # Detect crossovers (only trigger on crossover change, not every bar)
+        bullish_cross = (df['EMA_SHORT'].iloc[i] > df['EMA_LONG'].iloc[i]) and (df['EMA_SHORT'].iloc[i - 1] <= df['EMA_LONG'].iloc[i - 1])
+        bearish_cross = (df['EMA_SHORT'].iloc[i] < df['EMA_LONG'].iloc[i]) and (df['EMA_SHORT'].iloc[i - 1] >= df['EMA_LONG'].iloc[i - 1])
+
         if position == 0:
-            if ema_buy:
-                df.at[df.index[i], 'signal'] = 1
-                df.at[df.index[i], 'trade_id'] = trade_id
+            # Entry conditions on fresh cross
+            if bullish_cross or bearish_cross:
+                position = 1 if bullish_cross else -1
                 entry_price = price
-                open_trade_index = df.index[i]
-                position = 1
-            elif ema_sell:
-                df.at[df.index[i], 'signal'] = -1
-                df.at[df.index[i], 'trade_id'] = trade_id
-                entry_price = price
-                open_trade_index = df.index[i]
-                position = -1
+                stop_loss_price = entry_price * (1 - STOPLOSS_THRESHOLD) if position == 1 else entry_price * (1 + STOPLOSS_THRESHOLD)
+                take_profit_price = entry_price * (1 + TAKEPROFIT_THRESHOLD) if position == 1 else entry_price * (1 - TAKEPROFIT_THRESHOLD)
+                stop_distance = abs(entry_price - stop_loss_price)
+                lot_size = risk_amount / stop_distance if stop_distance != 0 else 0
+                reward_amount = lot_size * abs(take_profit_price - entry_price)
 
-        # Long exit
+                df.at[time, 'signal'] = position
+                df.at[time, 'trade_id'] = trade_id
+                open_trade_index = time
+
         elif position == 1:
-            stop_loss_hit = price < entry_price * (1 - STOPLOSS_THRESHOLD) if USE_STOPLOSS else False
-            take_profit_hit = price > entry_price * (1 + TAKEPROFIT_THRESHOLD) if USE_TAKEPROFIT else False
-            crossover_exit = ema_sell
-            if stop_loss_hit or take_profit_hit or crossover_exit:
-                df.at[df.index[i], 'signal'] = -1
-                df.at[df.index[i], 'trade_id'] = trade_id
-                pnl = price - entry_price
-                trades.append([trade_id, open_trade_index, df.index[i], entry_price, price, pnl])
+            stop_hit = price < stop_loss_price
+            tp_hit = price > take_profit_price
+
+            # Exit long if SL, TP, or reverse crossover
+            if stop_hit or tp_hit or bearish_cross:
+                pnl = (price - entry_price) * lot_size
+                pips = (price - entry_price) * 100
+                trades.append([
+                    open_trade_index.strftime('%Y-%m-%d'),
+                    symbol.replace('/', ''),
+                    'Buy',
+                    round(entry_price, 2),
+                    round(stop_loss_price, 2),
+                    round(take_profit_price, 2),
+                    round(price, 2),
+                    round(pips, 1),
+                    round(risk_amount, 2),
+                    round(reward_amount, 2),
+                    f"1:{round(reward_amount/risk_amount, 1)}",
+                    round(lot_size, 6),
+                    'Win' if pnl > 0 else 'Loss'
+                ])
+                df.at[time, 'signal'] = -1
+                df.at[time, 'trade_id'] = trade_id
                 position = 0
                 trade_id += 1
 
-        # Short exit
         elif position == -1:
-            stop_loss_hit = price > entry_price * (1 + STOPLOSS_THRESHOLD) if USE_STOPLOSS else False
-            take_profit_hit = price < entry_price * (1 - TAKEPROFIT_THRESHOLD) if USE_TAKEPROFIT else False
-            crossover_exit = ema_buy
-            if stop_loss_hit or take_profit_hit or crossover_exit:
-                df.at[df.index[i], 'signal'] = 1
-                df.at[df.index[i], 'trade_id'] = trade_id
-                pnl = entry_price - price
-                trades.append([trade_id, open_trade_index, df.index[i], entry_price, price, pnl])
+            stop_hit = price > stop_loss_price
+            tp_hit = price < take_profit_price
+
+            # Exit short if SL, TP, or reverse crossover
+            if stop_hit or tp_hit or bullish_cross:
+                pnl = (entry_price - price) * lot_size
+                pips = (entry_price - price) * 100
+                trades.append([
+                    open_trade_index.strftime('%Y-%m-%d'),
+                    symbol.replace('/', ''),
+                    'Sell',
+                    round(entry_price, 2),
+                    round(stop_loss_price, 2),
+                    round(take_profit_price, 2),
+                    round(price, 2),
+                    round(pips, 1),
+                    round(risk_amount, 2),
+                    round(reward_amount, 2),
+                    f"1:{round(reward_amount/risk_amount, 1)}",
+                    round(lot_size, 6),
+                    'Win' if pnl > 0 else 'Loss'
+                ])
+                df.at[time, 'signal'] = 1
+                df.at[time, 'trade_id'] = trade_id
                 position = 0
                 trade_id += 1
 
+    # Fill position column based on past signal
     df['position'] = df['signal'].replace(to_replace=0, method='ffill').fillna(0)
-    trades_df = pd.DataFrame(trades, columns=['trade_id', 'entry_time', 'exit_time', 'entry_price', 'exit_price', 'pnl'])
-    trades_df.to_csv('logs/trades.csv', index=False)
-    return df
 
+    # Log trades to CSV
+    trades_df = pd.DataFrame(trades, columns=[
+        'Date', 'Pair', 'Buy/Sell', 'Entry Price', 'Stop Loss', 'Take Profit',
+        'Exit Price', 'Pips Gained/Lost', 'Risk (USD)', 'Reward (USD)', 'R:R Ratio', 'Lot Size', 'Result'
+    ])
+    if log_trades:
+        os.makedirs("logs", exist_ok=True)
+        trades_df.to_csv('logs/trades.csv', index=False)
+
+    return df
 
 def compute_rsi(series, period=14):
     delta = series.diff()
@@ -98,7 +146,6 @@ def compute_rsi(series, period=14):
     rsi = 100 - (100 / (1 + rs))
     return rsi
 
-
 def compute_macd(series, fast=12, slow=26, signal=9):
     ema_fast = series.ewm(span=fast, adjust=False).mean()
     ema_slow = series.ewm(span=slow, adjust=False).mean()
@@ -106,11 +153,17 @@ def compute_macd(series, fast=12, slow=26, signal=9):
     macd_signal = macd.ewm(span=signal, adjust=False).mean()
     return macd, macd_signal
 
-
 def compute_vwap(df):
     return (df['close'] * df['volume']).cumsum() / df['volume'].cumsum()
 
 
-def detect_fvg(df):
-    fvg = (df['low'].shift(-2) > df['high'])
-    return fvg.astype(int)
+if __name__ == "__main__":
+    import os
+
+    # Temporary test — load a dataset
+    df = pd.read_csv("data/BTCUSDT_1h.csv", index_col="timestamp", parse_dates=True)
+    
+    # Run strategy and output trades.csv
+    ema_crossover_strategy(df, capital=10000)
+    
+    print("✅ Strategy executed and trades.csv written to logs/")

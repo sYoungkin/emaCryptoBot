@@ -1,0 +1,4 @@
+timestamp,symbol,price,signal,position_size,position_value,stop_loss,take_profit
+2025-04-17 07:09:00,BTC/USDT,84673.7,⚪ HOLD,0.005905,500.0,,
+2025-04-17 07:11:00,BTC/USDT,84681.3,⚪ HOLD,0.005904,499.96,,
+2025-04-17 07:12:00,BTC/USDT,84681.5,⚪ HOLD,0.005904,499.96,,
