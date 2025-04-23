@@ -1,3 +1,3 @@
 # EMA Crypto Bot - Strategy Backtesting & Live Trading
 
-Work in Progress. I'm composing an algo-trading bot with AI. This is mainly an apprenticeship with AI, but it remains my vision. Goal: run a bot that trades automatically and wins money for me. But there are also some cool dashboards to strategy comparison and market analysis. In principle it works, but I don't have the courage to risk real money on it. Unfortunately, the test data is not always reliable, so it's hard to say how well it works. Plus there are other factors that must be considered before going live: network outages or lag, unexpected execution, etc. So if I ever do get it up and running, it probably would be a good idea to put it in a VM in cloud or something. Nonetheless, having just an automated system that alerts on trustable signals is also not bad.
+Work in Progress. I'm composing with the help of AI algo-trading bot. This is mainly an apprenticeship with AI, but it remains my vision. 
